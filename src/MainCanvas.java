@@ -362,22 +362,46 @@ public Linha2D ajustarLinhaParaLimites(float x1, float y1, float x2, float y2) {
 		g.setColor(Color.red);
 		if(estado==1) {
 			//g.drawLine((int)p1linhadesenhando.x, (int)p1linhadesenhando.y, mouseX, mouseY);
-			    //Linha2D linha = (p1linhadesenhando, new Ponto2D(mouseX, mouseY));
-				 bresenham((int) p1linhadesenhando.x, (int) p1linhadesenhando.y, mouseX, mouseY);
-
+			//Linha2D linha = (p1linhadesenhando, new Ponto2D(mouseX, mouseY));
+			Linha2D temp = new Linha2D(p1linhadesenhando.x, p1linhadesenhando.y, mouseX, mouseY);
+			if (clipLinha(temp)) {
+				bresenham((int) p1linhadesenhando.x, (int) p1linhadesenhando.y, mouseX, mouseY);
+			}
 		}
 		if(estado==2) {
-				bresenham((int)p1linhadesenhando.x, (int)p1linhadesenhando.y, (int)p2linhadesenhando.x, (int)p2linhadesenhando.y);
-				bresenham((int)p2linhadesenhando.x, (int)p2linhadesenhando.y, mouseX, mouseY);
-				bresenham((int)p1linhadesenhando.x, (int)p1linhadesenhando.y, mouseX, mouseY);
+			Ponto2D p3 = new Ponto2D(mouseX, mouseY);
+			Linha2D l1 = new Linha2D(p1linhadesenhando, p2linhadesenhando);
+			Linha2D l2 = new Linha2D(p2linhadesenhando, p3);
+			Linha2D l3 = new Linha2D(p3, p1linhadesenhando);
+
+			Linha2D[] lados = {l1, l2, l3};
+			for (Linha2D l : lados) {
+				Linha2D lClip = new Linha2D(l.a, l.b); // cria cópia
+				if (clipLinha(lClip)) {
+					bresenham((int) p1linhadesenhando.x, (int) p1linhadesenhando.y, (int) p2linhadesenhando.x, (int) p2linhadesenhando.y);
+					bresenham((int) p2linhadesenhando.x, (int) p2linhadesenhando.y, mouseX, mouseY);
+					bresenham((int) p1linhadesenhando.x, (int) p1linhadesenhando.y, mouseX, mouseY);
+				}
+			}
 		}
 
 		g.setColor(Color.black);
 		for (int i = 0; i < listaDeTriangulos.size(); i++) {
 			Triangulo2D tri = listaDeTriangulos.get(i);
-			bresenham((int)tri.getPa().x, (int)tri.getPa().y, (int)tri.getPb().x, (int)tri.getPb().y);
-			bresenham((int)tri.getPb().x, (int)tri.getPb().y, (int)tri.getPc().x, (int)tri.getPc().y);
-			bresenham((int)tri.getPc().x, (int)tri.getPc().y, (int)tri.getPa().x, (int)tri.getPa().y);
+			Linha2D l1 = new Linha2D(tri.pa, tri.pb);
+			Linha2D l2 = new Linha2D(tri.pb, tri.pc);
+			Linha2D l3 = new Linha2D(tri.pc, tri.pa);
+			Linha2D[] lados = {l1, l2, l3};
+
+			for (Linha2D l : lados) {
+				Linha2D lClip = new Linha2D(l.a, l.b); // cópia da linha
+				if (clipLinha(lClip)) {
+					bresenham((int) tri.getPa().x, (int) tri.getPa().y, (int) tri.getPb().x, (int) tri.getPb().y);
+					bresenham((int) tri.getPb().x, (int) tri.getPb().y, (int) tri.getPc().x, (int) tri.getPc().y);
+					bresenham((int) tri.getPc().x, (int) tri.getPc().y, (int) tri.getPa().x, (int) tri.getPa().y);
+
+				}
+			}
 		}
 
 		g.drawImage(imageBuffer, 0, 0, null);
@@ -564,6 +588,88 @@ public Linha2D ajustarLinhaParaLimites(float x1, float y1, float x2, float y2) {
 		else return null;
 	}
 */
+
+	private boolean clipLinha(Linha2D linha) {
+		final int INSIDE = 0; // 0000
+		final int LEFT = 1;   // 0001
+		final int RIGHT = 2;  // 0010
+		final int BOTTOM = 4; // 0100
+		final int TOP = 8;    // 1000
+
+		// Limites do retângulo de clipping (sua tela)
+		float xmin = 50, ymin = 50, xmax = 800, ymax = 650;
+
+		// Pega os pontos da linha
+		float x0 = linha.a.x;
+		float y0 = linha.a.y;
+		float x1 = linha.b.x;
+		float y1 = linha.b.y;
+
+		// Função interna para calcular o código da região
+		java.util.function.BiFunction<Float, Float, Integer> computeOutCode = (x, y) -> {
+			int code = INSIDE;
+			if (x < xmin) code |= LEFT;
+			else if (x > xmax) code |= RIGHT;
+			if (y < ymin) code |= BOTTOM;
+			else if (y > ymax) code |= TOP;
+			return code;
+		};
+
+		int outcode0 = computeOutCode.apply(x0, y0);
+		int outcode1 = computeOutCode.apply(x1, y1);
+
+		boolean accept = false;
+
+		while (true) {
+			if ((outcode0 | outcode1) == 0) {
+				// Ambas as extremidades dentro da janela
+				accept = true;
+				break;
+			} else if ((outcode0 & outcode1) != 0) {
+				// Ambas fora da mesma região: rejeita
+				break;
+			} else {
+				// Pelo menos uma extremidade está fora
+				float x = 0, y = 0;
+				int outcodeOut = (outcode0 != 0) ? outcode0 : outcode1;
+
+				if ((outcodeOut & TOP) != 0) {
+					x = x0 + (x1 - x0) * (ymax - y0) / (y1 - y0);
+					y = ymax;
+				} else if ((outcodeOut & BOTTOM) != 0) {
+					x = x0 + (x1 - x0) * (ymin - y0) / (y1 - y0);
+					y = ymin;
+				} else if ((outcodeOut & RIGHT) != 0) {
+					y = y0 + (y1 - y0) * (xmax - x0) / (x1 - x0);
+					x = xmax;
+				} else if ((outcodeOut & LEFT) != 0) {
+					y = y0 + (y1 - y0) * (xmin - x0) / (x1 - x0);
+					x = xmin;
+				}
+
+				if (outcodeOut == outcode0) {
+					x0 = x;
+					y0 = y;
+					outcode0 = computeOutCode.apply(x0, y0);
+				} else {
+					x1 = x;
+					y1 = y;
+					outcode1 = computeOutCode.apply(x1, y1);
+				}
+			}
+		}
+
+		if (accept) {
+			linha.a.x = x0;
+			linha.a.y = y0;
+			linha.b.x = x1;
+			linha.b.y = y1;
+			return true;
+		} else {
+			return false;
+		}
+	}
+
 
 	@Override
 	public void run() {

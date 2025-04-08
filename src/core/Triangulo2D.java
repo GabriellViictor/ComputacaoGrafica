@@ -4,8 +4,8 @@ import java.awt.Graphics2D;
 
 public class Triangulo2D {
 	public Ponto2D pa;
-	Ponto2D pb;
-	Ponto2D pc;
+	public Ponto2D pb;
+	public Ponto2D pc;
 	public Triangulo2D(Ponto2D a, Ponto2D b, Ponto2D c) {
 		super();
 		this.pa = a;

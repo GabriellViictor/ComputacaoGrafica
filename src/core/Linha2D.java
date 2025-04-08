@@ -3,8 +3,8 @@ package core;
 import java.awt.Graphics2D;
 
 public class Linha2D {
-	Ponto2D a;
-	Ponto2D b;
+	public Ponto2D a;
+	public Ponto2D b;
 	public Linha2D(Ponto2D a, Ponto2D b) {
 		super();
 		this.a = a;
